@@ -1,0 +1,39 @@
+{
+  "compilerOptions": {
+    /* Output structure */
+    "rootDir": "./src",
+    "outDir": "./dist",
+
+    /* Target environment */
+    "module": "ESNext",
+    "target": "ES2020", // Node.js package default
+    "lib": ["ES2020"],
+
+    /* Type declarations for Node.js */
+    "types": ["node"],
+
+    /* Emit declaration files for JS users */
+    "declaration": true,
+    "declarationMap": true,
+    "emitDeclarationOnly": false, // Also output compiled JS
+
+    /* Source maps for debugging */
+    "sourceMap": true,
+
+    /* Strict type checking */
+    "strict": true,
+    "noImplicitAny": true,
+    "exactOptionalPropertyTypes": true,
+    "noUncheckedIndexedAccess": true,
+
+    /* Module resolution */
+    "moduleResolution": "node",
+    "esModuleInterop": true, // Easier imports for JS users
+    "forceConsistentCasingInFileNames": true,
+
+    /* Skip checking .d.ts from dependencies */
+    "skipLibCheck": true
+  },
+  "include": ["src"],
+  "exclude": ["node_modules", "dist", "**/*.test.ts"]
+}

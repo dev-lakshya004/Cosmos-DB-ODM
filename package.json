@@ -1,0 +1,30 @@
+{
+  "name": "cosmos-odm",
+  "version": "1.0.0",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "type": "module",
+  "scripts": {
+    "build": "tsc",
+    "clean": "rm -rf dist"
+  },
+  "files": [
+    "dist/**/*"
+  ],
+  "keywords": [
+    "odm",
+    "query-builder",
+    "cosmosdb",
+    "database"
+  ],
+  "author": "Lakshya Kumar Singh",
+  "license": "MIT",
+  "description": "Custom Cosmos DB ODM with Zod validation and query builder",
+  "dependencies": {
+    "@azure/cosmos": "^4.4.1",
+    "zod": "^4.0.17"
+  },
+  "devDependencies": {
+    "@types/node": "^24.2.1"
+  }
+}
