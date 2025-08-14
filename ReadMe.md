@@ -68,7 +68,12 @@ await User.insertMany([
 await User.findById("88efb782-5d0a-41bf-958e-fd60e4a96348", "partition-Key");
 
 // Update with filter
-await User.update({ age: 34 }, qb().eq("name", "Satarupa"));
+await User.update({
+  doc: {
+    age: 37,
+  },
+  filter: q.eq("name", "Makshya"),
+});
 
 // Update by ID and Partitionkey Both
 await User.updateById({ age: 25 }, id: "7daf1f3d-2d39-475f-b6a9-adeaa2f0a0a2", partitionKey: "partitionKey");
