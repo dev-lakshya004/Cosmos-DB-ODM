@@ -223,4 +223,4 @@ class Model<T extends ZodObject<any>> {
   }
 }
 
-export { Model, z };
+export { Model };

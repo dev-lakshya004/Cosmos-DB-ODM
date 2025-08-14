@@ -28,5 +28,5 @@ declare class Model<T extends ZodObject<any>> {
     }): Promise<z.infer<T>[]>;
     deleteById(id: string, partitionKey?: string): Promise<Boolean>;
 }
-export { Model, z };
+export { Model };
 //# sourceMappingURL=BaseModel.odm.d.ts.map

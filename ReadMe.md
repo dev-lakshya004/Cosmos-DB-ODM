@@ -12,11 +12,12 @@ A lightweight **Object Document Mapper (ODM)** for [Azure Cosmos DB](https://lea
 ## 📦 Installation
 
 ```bash
-npm install cosmos-odm
+npm i @lakshya004/cosmos-odm
 ```
 
 ```bash
-import { DBConnection, Model, qb, z } from "cosmos-odm";
+import { DBConnection, Model, qb } from "cosmos-odm";
+import z from "zod";
 
 // 1️⃣ Connect to Cosmos DB
 const db = new DBConnection(
@@ -53,9 +54,7 @@ await User.updateById({ doc: { age: 29 }, id: newUser.id! });
 
 // 8️⃣ Delete
 await User.deleteById(newUser.id!);
-```
 
-```bash
 // Insert one
 await User.insert({ name: "Lakshya", age: 20 });
 
@@ -78,12 +77,16 @@ await User.updateById({ age: 25 }, "7daf1f3d-2d39-475f-b6a9-adeaa2f0a0a2");
 await User.deleteById("3741e9c3-3621-4531-b8cc-22ee910fec03");
 ```
 
+---
+
 # 📚 API Reference
 
 | Method                                      | Description                        |
 | ------------------------------------------- | ---------------------------------- |
 | `connectDatabase(dbName)`                   | Creates or connects to a database  |
 | `connectCollection(dbName, collectionName)` | Creates or connects to a container |
+
+---
 
 # Model
 
@@ -97,6 +100,8 @@ A generic, schema-driven data access class.
 | `updateById({ doc, id, partitionKey })` | Update a document by ID |
 | `update({ doc, filter })` | Update multiple documents by filter |
 | `deleteById(id, partitionKey?)` | Delete a document by ID |
+
+---
 
 # Query Builder (qb)
 

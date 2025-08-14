@@ -1,4 +1,3 @@
-import z from "zod";
 class Model {
     constructor(schema, collection) {
         this._schema = schema;
@@ -154,5 +153,5 @@ class Model {
         }
     }
 }
-export { Model, z };
+export { Model };
 //# sourceMappingURL=BaseModel.odm.js.map
