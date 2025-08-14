@@ -65,13 +65,13 @@ await User.insertMany([
 ]);
 
 // Find by ID
-await User.findById("88efb782-5d0a-41bf-958e-fd60e4a96348");
+await User.findById("88efb782-5d0a-41bf-958e-fd60e4a96348", "partition-Key");
 
 // Update with filter
 await User.update({ age: 34 }, qb().eq("name", "Satarupa"));
 
-// Update by ID
-await User.updateById({ age: 25 }, "7daf1f3d-2d39-475f-b6a9-adeaa2f0a0a2");
+// Update by ID and Partitionkey Both
+await User.updateById({ age: 25 }, id: "7daf1f3d-2d39-475f-b6a9-adeaa2f0a0a2", partitionKey: "partitionKey");
 
 // Delete by ID
 await User.deleteById("3741e9c3-3621-4531-b8cc-22ee910fec03");
@@ -118,6 +118,8 @@ Fluent query builder for Cosmos DB SQL API.
 | `.and(...conditions)` | Combine conditions with AND |
 | `.or(...conditions)` | Combine conditions with OR |
 | `.build()` | Returns `{ query, params }` |
+
+---
 
 # 🔹 Continuation Tokens
 
