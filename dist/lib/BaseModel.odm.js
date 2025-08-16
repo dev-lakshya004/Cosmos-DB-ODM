@@ -142,22 +142,26 @@ class Model {
             throw error;
         }
     }
-    async count({ filter }) {
+    async count({ filter, field, } = {}) {
         try {
+            const countField = field ? `c.${field}` : "1";
             if (filter) {
                 const built = filter.build();
                 const whereSql = built?.query ? ` WHERE ${built.query}` : "";
                 let parameters = built?.params;
                 const querySpec = parameters && parameters.length
-                    ? { query: `SELECT VALUE COUNT(1) FROM c${whereSql}`, parameters }
-                    : { query: `SELECT VALUE COUNT(1) FROM c${whereSql}` };
+                    ? {
+                        query: `SELECT VALUE COUNT(${countField}) FROM c${whereSql}`,
+                        parameters,
+                    }
+                    : { query: `SELECT VALUE COUNT(${countField}) FROM c${whereSql}` };
                 const { resources } = await this._collection.items
                     .query(querySpec)
                     .fetchAll();
                 return resources[0] || 0;
             }
             const { resources } = await this._collection.items
-                .query("SELECT VALUE COUNT(1) FROM c")
+                .query(`SELECT VALUE COUNT(${countField}) FROM c`)
                 .fetchAll();
             return resources[0] || 0;
         }
