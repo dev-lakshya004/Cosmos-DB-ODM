@@ -80,6 +80,12 @@ await User.updateById({ age: 25 }, id: "7daf1f3d-2d39-475f-b6a9-adeaa2f0a0a2", p
 
 // Delete by ID
 await User.deleteById("3741e9c3-3621-4531-b8cc-22ee910fec03");
+
+// Get Collection Count
+const rowCount = User.count();
+
+// Get Collection Count By Filter
+const filterCount = User.count(qb().ilike("name","lak"));
 ```
 
 ---
