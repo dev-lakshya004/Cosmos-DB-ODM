@@ -229,6 +229,11 @@ class Model<T extends ZodObject<any>> {
           .fetchAll();
         return resources[0] || 0;
       }
+      const { resources } = await this._collection.items
+        .query("SELECT VALUE COUNT(1) FROM c")
+        .fetchAll();
+
+      return resources[0] || 0;
     } catch (error: any) {
       console.log("error", error);
       throw error;

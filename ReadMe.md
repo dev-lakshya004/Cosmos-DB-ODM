@@ -111,6 +111,7 @@ A generic, schema-driven data access class.
 | `updateById({ doc, id, partitionKey })` | Update a document by ID |
 | `update({ doc, filter })` | Update multiple documents by filter |
 | `deleteById(id, partitionKey?)` | Delete a document by ID |
+| `count({ filter? })` | Counts the documents in a collection |
 
 ---
 

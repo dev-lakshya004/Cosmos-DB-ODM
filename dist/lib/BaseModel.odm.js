@@ -156,6 +156,10 @@ class Model {
                     .fetchAll();
                 return resources[0] || 0;
             }
+            const { resources } = await this._collection.items
+                .query("SELECT VALUE COUNT(1) FROM c")
+                .fetchAll();
+            return resources[0] || 0;
         }
         catch (error) {
             console.log("error", error);
