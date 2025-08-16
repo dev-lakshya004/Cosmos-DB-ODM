@@ -212,6 +212,29 @@ class Model<T extends ZodObject<any>> {
     }
   }
 
+  async count({ filter }: { filter?: QB }) {
+    try {
+      if (filter) {
+        const built = filter.build();
+        const whereSql = built?.query ? ` WHERE ${built.query}` : "";
+        let parameters: SqlParameter[] | undefined = built?.params;
+
+        const querySpec =
+          parameters && parameters.length
+            ? { query: `SELECT VALUE COUNT(1) FROM c${whereSql}`, parameters }
+            : { query: `SELECT VALUE COUNT(1) FROM c${whereSql}` };
+
+        const { resources } = await this._collection.items
+          .query(querySpec)
+          .fetchAll();
+        return resources[0] || 0;
+      }
+    } catch (error: any) {
+      console.log("error", error);
+      throw error;
+    }
+  }
+
   async deleteById(id: string, partitionKey: string = id): Promise<Boolean> {
     try {
       await this._collection.item(id, partitionKey).delete();

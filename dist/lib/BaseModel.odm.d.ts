@@ -26,6 +26,9 @@ declare class Model<T extends ZodObject<any>> {
         doc: z.infer<T>;
         filter: QB;
     }): Promise<z.infer<T>[]>;
+    count({ filter }: {
+        filter?: QB;
+    }): Promise<any>;
     deleteById(id: string, partitionKey?: string): Promise<Boolean>;
 }
 export { Model };

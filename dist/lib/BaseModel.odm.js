@@ -142,6 +142,26 @@ class Model {
             throw error;
         }
     }
+    async count({ filter }) {
+        try {
+            if (filter) {
+                const built = filter.build();
+                const whereSql = built?.query ? ` WHERE ${built.query}` : "";
+                let parameters = built?.params;
+                const querySpec = parameters && parameters.length
+                    ? { query: `SELECT VALUE COUNT(1) FROM c${whereSql}`, parameters }
+                    : { query: `SELECT VALUE COUNT(1) FROM c${whereSql}` };
+                const { resources } = await this._collection.items
+                    .query(querySpec)
+                    .fetchAll();
+                return resources[0] || 0;
+            }
+        }
+        catch (error) {
+            console.log("error", error);
+            throw error;
+        }
+    }
     async deleteById(id, partitionKey = id) {
         try {
             await this._collection.item(id, partitionKey).delete();

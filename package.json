@@ -14,11 +14,20 @@
   "keywords": [
     "odm",
     "query-builder",
-    "database","cosmos", "cosmosdb", "schema", "nosql", "azure", "database", "typescript", "zod", "mongoose-like"
+    "database",
+    "cosmos",
+    "cosmosdb",
+    "schema",
+    "nosql",
+    "azure",
+    "database",
+    "typescript",
+    "zod",
+    "mongoose-like"
   ],
   "author": "Lakshya Kumar Singh",
   "license": "MIT",
-  "description": "Azure Cosmos DB ODM",
+  "description": "Azure Cosmos DB ODM/ORM with a Mongoose-like query builder and schema validation using Zod.",
   "dependencies": {
     "@azure/cosmos": "^4.4.1",
     "zod": "^4.0.17"
