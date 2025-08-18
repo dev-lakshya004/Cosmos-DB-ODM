@@ -47,7 +47,7 @@ class Model {
             throw error;
         }
     }
-    async find({ filter, fields = [], limit, offset, }) {
+    async find({ filter, fields = [], limit = 100, offset = 0, }) {
         try {
             const projection = fields?.length
                 ? fields.map((field) => `c.${field}`).join(", ")
@@ -56,21 +56,20 @@ class Model {
             const whereSql = built?.query ? ` WHERE ${built.query}` : "";
             let parameters = built?.params;
             const querySpec = parameters && parameters.length
-                ? { query: `SELECT ${projection} FROM c${whereSql}`, parameters }
-                : { query: `SELECT ${projection} FROM c${whereSql}` };
+                ? {
+                    query: `SELECT ${projection} FROM c${whereSql} OFFSET ${offset} LIMIT ${limit}`,
+                    parameters,
+                }
+                : {
+                    query: `SELECT ${projection} FROM c${whereSql} OFFSET ${offset} LIMIT ${limit}`,
+                };
             console.log("querySpec: ", querySpec);
-            const options = {
-                maxItemCount: limit || 100,
-            };
-            const iterator = this._collection.items.query(querySpec, options);
-            if (offset) {
-                iterator.continuationToken = offset;
-            }
-            const { resources, continuationToken } = await iterator.fetchNext();
+            const iterator = this._collection.items.query(querySpec);
+            const { resources } = await iterator.fetchAll();
             if (!resources || !resources.length) {
-                return { resources: [], continuationToken };
+                return { resources: [] };
             }
-            return { resources, continuationToken };
+            return { resources };
         }
         catch (error) {
             console.log("error", error);

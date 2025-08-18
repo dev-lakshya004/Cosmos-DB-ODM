@@ -70,13 +70,13 @@ class Model<T extends ZodObject<any>> {
   async find({
     filter,
     fields = [],
-    limit,
-    offset,
+    limit = 100,
+    offset = 0,
   }: {
     filter?: QB;
     fields?: string[];
     limit?: number;
-    offset?: string;
+    offset?: number;
   }): Promise<{ resources: z.infer<T>[]; continuationToken?: string } | null> {
     try {
       const projection = fields?.length
@@ -90,27 +90,25 @@ class Model<T extends ZodObject<any>> {
 
       const querySpec =
         parameters && parameters.length
-          ? { query: `SELECT ${projection} FROM c${whereSql}`, parameters }
-          : { query: `SELECT ${projection} FROM c${whereSql}` };
+          ? {
+              query: `SELECT ${projection} FROM c${whereSql} OFFSET ${offset} LIMIT ${limit}`,
+              parameters,
+            }
+          : {
+              query: `SELECT ${projection} FROM c${whereSql} OFFSET ${offset} LIMIT ${limit}`,
+            };
 
       console.log("querySpec: ", querySpec);
 
-      const options: FeedOptions = {
-        maxItemCount: limit || 100,
-      };
+      const iterator = this._collection.items.query(querySpec);
 
-      const iterator = this._collection.items.query(querySpec, options);
-      if (offset) {
-        (iterator as any).continuationToken = offset;
-      }
-
-      const { resources, continuationToken } = await iterator.fetchNext();
+      const { resources } = await iterator.fetchAll();
 
       if (!resources || !resources.length) {
-        return { resources: [], continuationToken };
+        return { resources: [] };
       }
 
-      return { resources, continuationToken };
+      return { resources };
     } catch (error: any) {
       console.log("error", error);
       throw error;

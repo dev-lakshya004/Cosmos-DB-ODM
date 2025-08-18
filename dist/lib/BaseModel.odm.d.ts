@@ -12,7 +12,7 @@ declare class Model<T extends ZodObject<any>> {
         filter?: QB;
         fields?: string[];
         limit?: number;
-        offset?: string;
+        offset?: number;
     }): Promise<{
         resources: z.infer<T>[];
         continuationToken?: string;
