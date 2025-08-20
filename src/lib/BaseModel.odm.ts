@@ -1,14 +1,37 @@
-import { Container, FeedOptions, SqlParameter } from "@azure/cosmos";
+import { Container, SqlParameter } from "@azure/cosmos";
 import z, { ZodObject } from "zod";
 import { QB } from "./QueryBuilder";
+
+
+type FieldsFromSchema<T extends z.ZodObject<any>> = {
+  [K in keyof z.infer<T>]: {name: string};
+};
 
 class Model<T extends ZodObject<any>> {
   private _schema: T;
   private _collection: Container;
+  public fields: FieldsFromSchema<T>
 
   constructor(schema: T, collection: Container) {
     this._schema = schema;
     this._collection = collection;
+    this.fields = this.defineModel(schema);
+
+    Object.keys(this.fields).forEach((key) => {
+      Object.defineProperty(this, key, {
+        get: () => this.fields[key as keyof z.infer<T>],
+        enumerable: true,
+      });
+    });
+  }
+
+  private defineModel<S extends z.ZodObject<any>>(schema: S) {
+    const fields = Object.keys(schema.shape).reduce((acc, key) => {
+      acc[key as keyof z.infer<S>] = { name: key } as any;
+      return acc;
+    }, {} as FieldsFromSchema<S>);
+
+    return fields;
   }
 
   async insert(doc: z.infer<T>): Promise<z.infer<T> | null> {
@@ -69,18 +92,20 @@ class Model<T extends ZodObject<any>> {
 
   async find({
     filter,
-    fields = [],
+    fields,
     limit = 100,
     offset = 0,
   }: {
     filter?: QB;
-    fields?: string[];
+    fields?: FieldsFromSchema<T>;
     limit?: number;
     offset?: number;
-  }): Promise<{ resources: z.infer<T>[]; continuationToken?: string } | null> {
+  }): Promise<{ resources: z.infer<T>[] } | null> {
     try {
-      const projection = fields?.length
-        ? fields.map((field) => `c.${field}`).join(", ")
+      const projection = fields
+        ? Object.entries(fields)
+            .map(([alias, col]) => `c.${col.name} AS ${alias}`)
+            .join(", ")
         : "*";
 
       const built = filter?.build();
@@ -108,7 +133,7 @@ class Model<T extends ZodObject<any>> {
         return { resources: [] };
       }
 
-      return { resources };
+      return { resources: resources as z.infer<T>[] };
     } catch (error: any) {
       console.log("error", error);
       throw error;
@@ -213,9 +238,9 @@ class Model<T extends ZodObject<any>> {
   async count({
     filter,
     field,
-  }: { filter?: QB; field?: string } = {}): Promise<number> {
+  }: { filter?: QB; field?: { name: string } } = {}): Promise<number> {
     try {
-      const countField = field ? `c.${field}` : "1";
+      const countField = field ? `c.${field.name}` : "1";
       if (filter) {
         const built = filter.build();
         const whereSql = built?.query ? ` WHERE ${built.query}` : "";

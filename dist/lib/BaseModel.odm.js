@@ -2,6 +2,20 @@ class Model {
     constructor(schema, collection) {
         this._schema = schema;
         this._collection = collection;
+        this.fields = this.defineModel(schema);
+        Object.keys(this.fields).forEach((key) => {
+            Object.defineProperty(this, key, {
+                get: () => this.fields[key],
+                enumerable: true,
+            });
+        });
+    }
+    defineModel(schema) {
+        const fields = Object.keys(schema.shape).reduce((acc, key) => {
+            acc[key] = { name: key };
+            return acc;
+        }, {});
+        return fields;
     }
     async insert(doc) {
         try {
@@ -47,10 +61,12 @@ class Model {
             throw error;
         }
     }
-    async find({ filter, fields = [], limit = 100, offset = 0, }) {
+    async find({ filter, fields, limit = 100, offset = 0, }) {
         try {
-            const projection = fields?.length
-                ? fields.map((field) => `c.${field}`).join(", ")
+            const projection = fields
+                ? Object.entries(fields)
+                    .map(([alias, col]) => `c.${col.name} AS ${alias}`)
+                    .join(", ")
                 : "*";
             const built = filter?.build();
             const whereSql = built?.query ? ` WHERE ${built.query}` : "";
@@ -69,7 +85,7 @@ class Model {
             if (!resources || !resources.length) {
                 return { resources: [] };
             }
-            return { resources };
+            return { resources: resources };
         }
         catch (error) {
             console.log("error", error);
@@ -143,7 +159,7 @@ class Model {
     }
     async count({ filter, field, } = {}) {
         try {
-            const countField = field ? `c.${field}` : "1";
+            const countField = field ? `c.${field.name}` : "1";
             if (filter) {
                 const built = filter.build();
                 const whereSql = built?.query ? ` WHERE ${built.query}` : "";

@@ -3,16 +3,38 @@ declare class QB {
     private query;
     private params;
     private static globalParamCounter;
-    constructor(query?: string, params?: SqlParameter[]);
+    constructor(query?: {
+        name: string;
+    }, params?: SqlParameter[]);
     private nextParamName;
     private addParam;
-    eq(field: string, value: number | string): QB;
-    gt(field: string, value: number): QB;
-    lt(field: string, value: number): QB;
-    inArray(field: string, values: (number | string)[]): QB;
-    ieq(field: string, value: string): QB;
-    ilike(field: string, value: string): QB;
-    ne(field: string, value: number | string): QB;
+    eq(field: {
+        name: string;
+    }, value: number | string): QB;
+    gt(field: {
+        name: string;
+    }, value: number): QB;
+    gte(field: {
+        name: string;
+    }, value: number): QB;
+    lt(field: {
+        name: string;
+    }, value: number): QB;
+    lte(field: {
+        name: string;
+    }, value: number): QB;
+    inArray(field: {
+        name: string;
+    }, values: (number | string)[]): QB;
+    ieq(field: {
+        name: string;
+    }, value: string): QB;
+    ilike(field: {
+        name: string;
+    }, value: string): QB;
+    ne(field: {
+        name: string;
+    }, value: number | string): QB;
     and(...conditions: QB[]): QB;
     or(...conditions: QB[]): QB;
     build(): {

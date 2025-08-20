@@ -1,21 +1,27 @@
 import { Container } from "@azure/cosmos";
 import z, { ZodObject } from "zod";
 import { QB } from "./QueryBuilder";
+type FieldsFromSchema<T extends z.ZodObject<any>> = {
+    [K in keyof z.infer<T>]: {
+        name: string;
+    };
+};
 declare class Model<T extends ZodObject<any>> {
     private _schema;
     private _collection;
+    fields: FieldsFromSchema<T>;
     constructor(schema: T, collection: Container);
+    private defineModel;
     insert(doc: z.infer<T>): Promise<z.infer<T> | null>;
     insertMany(docs: z.infer<T>[]): Promise<z.infer<T>[]>;
     findById(id: string, partitionKey?: string): Promise<z.infer<T> | null>;
     find({ filter, fields, limit, offset, }: {
         filter?: QB;
-        fields?: string[];
+        fields?: FieldsFromSchema<T>;
         limit?: number;
         offset?: number;
     }): Promise<{
         resources: z.infer<T>[];
-        continuationToken?: string;
     } | null>;
     updateById({ doc, id, partitionKey, }: {
         doc: z.infer<T>;
@@ -28,7 +34,9 @@ declare class Model<T extends ZodObject<any>> {
     }): Promise<z.infer<T>[]>;
     count({ filter, field, }?: {
         filter?: QB;
-        field?: string;
+        field?: {
+            name: string;
+        };
     }): Promise<number>;
     deleteById(id: string, partitionKey?: string): Promise<Boolean>;
 }
