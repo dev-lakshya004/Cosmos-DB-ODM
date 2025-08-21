@@ -3,8 +3,9 @@
 A lightweight **Object Document Mapper (ODM)** for [Azure Cosmos DB](https://learn.microsoft.com/en-us/azure/cosmos-db/introduction) with:
 
 - **Type-safe schemas** via [Zod](https://zod.dev/)
-- **Fluent Query Builder** for building SQL-like queries
-- Easy **CRUD operations**
+- **Schema-aware fields** (`User.name`, `User.age`) for type-safe queries
+- **Fluent Query Builder** for Cosmos DB SQL API
+- Easy **CRUD operations** with validation
 - Automatic database & container creation
 
 ---
@@ -15,21 +16,25 @@ A lightweight **Object Document Mapper (ODM)** for [Azure Cosmos DB](https://lea
 npm i @lakshya004/cosmos-odm
 ```
 
-```bash
+---
+
+## 🚀 Quick Start
+
+```c
 import { DBConnection, Model, qb } from "cosmos-odm";
 import z from "zod";
 
 // 1️⃣ Connect to Cosmos DB
 const db = new DBConnection(
-"<COSMOS_DB_ENDPOINT>",
-"<COSMOS_DB_KEY>"
+  "<COSMOS_DB_ENDPOINT>",
+  "<COSMOS_DB_KEY>"
 );
 
 // 2️⃣ Define a schema using Zod
 const schema = z.object({
-    id: z.string().optional(),
-    name: z.string(),
-    age: z.number(),
+  id: z.string().optional(),
+  name: z.string(),
+  age: z.number(),
 });
 
 // 3️⃣ Connect to a collection
@@ -38,68 +43,118 @@ const collection = await db.connectCollection("MyDatabase", "Users");
 // 4️⃣ Create a Model
 const User = new Model(schema, collection);
 
+// ✅ Access schema-safe fields
+console.log(User.name); // { name: "name" }
+console.log(User.age);  // { name: "age" }
+
 // 5️⃣ Insert a document
 const newUser = await User.insert({ name: "Alice", age: 28 });
 
-// 6️⃣ Query with the Query Builder
-const q = qb().and(qb().eq("name", "Alice"), qb().gt("age", 20));
-const { resources, continuationToken } = await User.find({
-    filter: q,
-    fields: ["id", "name", "age"],
-    limit: 10
+// 6️⃣ Query with Query Builder + fields
+const q = qb().and(
+  qb().eq(User.fields.name, "Alice"),
+  qb().gt(User.fields.age, 20)
+);
+
+const { resources } = await User.find({
+  filter: q,
+  fields: { id: User.fields.id, name: User.fields.name, age: User.fields.age },
+  limit: 10,
 });
 
-// 7️⃣ Update
+// 7️⃣ Update by ID
 await User.updateById({ doc: { age: 29 }, id: newUser.id! });
 
-// 8️⃣ Delete
+// 8️⃣ Delete by ID
 await User.deleteById(newUser.id!);
+```
 
-// Insert one
+---
+
+# ✨ Features
+
+## Insert
+
+```c
+// Single insert
 await User.insert({ name: "Lakshya", age: 20 });
 
-// Insert many
+// Bulk insert
 await User.insertMany([
   { name: "Rakesh", age: 30 },
   { name: "Dhruv", age: 20 },
 ]);
+```
 
-// Find by ID
-await User.findById("88efb782-5d0a-41bf-958e-fd60e4a96348", "partition-Key");
+---
 
-// Update with filter
-await User.update({
-  doc: {
-    age: 37,
-  },
-  filter: q.eq("name", "Makshya"),
+## Find
+
+```c
+// By ID
+await User.findById("doc-id", "partition-key");
+
+// With filter
+const q = qb().ilike(User.fields.name, "lak");
+const users = await User.find({ filter: q, limit: 5 });
+```
+
+---
+
+## Update
+
+```c
+// By ID
+await User.updateById({
+  doc: { age: 25 },
+  id: "doc-id",
+  partitionKey: "partition-key"
 });
 
-// Update by ID and Partitionkey Both
-await User.updateById({ age: 25 }, id: "7daf1f3d-2d39-475f-b6a9-adeaa2f0a0a2", partitionKey: "partitionKey");
+// By filter
+await User.update({
+  doc: { age: 37 },
+  filter: qb().eq(User.fields.name, "Makshya"),
+});
 
-// Delete by ID
-await User.deleteById("3741e9c3-3621-4531-b8cc-22ee910fec03");
+```
 
-// Get Collection Count
-const rowCount = User.count();
+---
 
-// Get Collection Count By Filter
-const filterCount = User.count(qb().ilike("name","lak"));
+## Delete
+
+```c
+// Partition key optional id same as doc-id
+await User.deleteById("doc-id", "partition-key");
+
+```
+
+---
+
+## Count
+
+```c
+// Total count
+const total = await User.count();
+
+// Count with filter
+const filtered = await User.count({
+  filter: qb().ilike(User.name, "lak"),
+});
 ```
 
 ---
 
 # 📚 API Reference
 
+## DBConnection
+
 | Method                                      | Description                        |
 | ------------------------------------------- | ---------------------------------- |
 | `connectDatabase(dbName)`                   | Creates or connects to a database  |
 | `connectCollection(dbName, collectionName)` | Creates or connects to a container |
 
----
-
-# Model
+## Model
 
 A generic, schema-driven data access class.
 | Method | Description |
@@ -111,43 +166,30 @@ A generic, schema-driven data access class.
 | `updateById({ doc, id, partitionKey })` | Update a document by ID |
 | `update({ doc, filter })` | Update multiple documents by filter |
 | `deleteById(id, partitionKey?)` | Delete a document by ID |
-| `count({ filter? })` | Counts the documents in a collection |
+| `count({ filter?, field? })` | Count documents |
 
 ---
 
-# Query Builder (qb)
+## 🔹 Query Builder (qb)
 
-Fluent query builder for Cosmos DB SQL API.
+Schema-aware, type-safe query builder.
 | Method | Example |
-| ------------------------- | ----------------------------------------- |
-| `.eq(field, value)` | `qb().eq("name", "John")` |
-| `.ne(field, value)` | `qb().ne("status", "inactive")` |
-| `.gt(field, value)` | `qb().gt("age", 30)` |
-| `.lt(field, value)` | `qb().lt("score", 100)` |
-| `.inArray(field, values)` | `qb().inArray("role", ["admin", "user"])` |
+| ------------------------- | -------------------------------------------- |
+| `.eq(field, value)` | `qb().eq(User.name, "John")` |
+| `.ne(field, value)` | `qb().ne(User.status, "inactive")` |
+| `.gt(field, value)` | `qb().gt(User.age, 30)` |
+| `.lt(field, value)` | `qb().lt(User.score, 100)` |
+| `.gte(field, value)` | `qb().gte(User.age, 18)` |
+| `.lte(field, value)` | `qb().lte(User.age, 65)` |
+| `.inArray(field, values)` | `qb().inArray(User.role, ["admin", "user"])` |
 | `.ieq(field, value)` | Case-insensitive equality |
 | `.ilike(field, value)` | Case-insensitive contains |
-| `.and(...conditions)` | Combine conditions with AND |
-| `.or(...conditions)` | Combine conditions with OR |
+| `.and(...conditions)` | Combine with AND |
+| `.or(...conditions)` | Combine with OR |
 | `.build()` | Returns `{ query, params }` |
 
 ---
 
-# 🔹 Continuation Tokens
-
-Cosmos DB paginates results.
-Use the continuationToken returned from .find() to fetch the next set.
-
-```bash
-let results = await User.find({ limit: 10 });
-if (results.continuationToken) {
-    results = await User.find({
-    limit: 10,
-    offset: results.continuationToken
-});
-}
-```
-
-# 📄 License
+## 📄 License
 
 MIT

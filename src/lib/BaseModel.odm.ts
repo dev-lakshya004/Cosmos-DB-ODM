@@ -2,15 +2,14 @@ import { Container, SqlParameter } from "@azure/cosmos";
 import z, { ZodObject } from "zod";
 import { QB } from "./QueryBuilder";
 
-
 type FieldsFromSchema<T extends z.ZodObject<any>> = {
-  [K in keyof z.infer<T>]: {name: string};
+  [K in keyof z.infer<T>]: { name: string };
 };
 
 class Model<T extends ZodObject<any>> {
   private _schema: T;
   private _collection: Container;
-  public fields: FieldsFromSchema<T>
+  public fields: FieldsFromSchema<T>;
 
   constructor(schema: T, collection: Container) {
     this._schema = schema;
