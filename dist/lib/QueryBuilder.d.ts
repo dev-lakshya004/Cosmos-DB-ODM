@@ -8,6 +8,13 @@ declare class QB {
     }, params?: SqlParameter[]);
     private nextParamName;
     private addParam;
+    asc(field: {
+        name: string;
+    }): string;
+    desc(field: {
+        name: string;
+    }): string;
+    order(...fields: Array<string>): string;
     eq(field: {
         name: string;
     }, value: number | string): QB;

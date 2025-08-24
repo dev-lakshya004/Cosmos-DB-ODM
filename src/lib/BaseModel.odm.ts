@@ -94,11 +94,13 @@ class Model<T extends ZodObject<any>> {
     fields,
     limit = 100,
     offset = 0,
+    orderBy,
   }: {
     filter?: QB;
     fields?: FieldsFromSchema<T>;
     limit?: number;
     offset?: number;
+    orderBy?: string;
   }): Promise<{ resources: z.infer<T>[] } | null> {
     try {
       const projection = fields
@@ -115,11 +117,15 @@ class Model<T extends ZodObject<any>> {
       const querySpec =
         parameters && parameters.length
           ? {
-              query: `SELECT ${projection} FROM c${whereSql} OFFSET ${offset} LIMIT ${limit}`,
+              query: `SELECT ${projection} FROM c${whereSql} ${
+                orderBy ? orderBy : ""
+              } OFFSET ${offset} LIMIT ${limit} `,
               parameters,
             }
           : {
-              query: `SELECT ${projection} FROM c${whereSql} OFFSET ${offset} LIMIT ${limit}`,
+              query: `SELECT ${projection} FROM c${whereSql} ${
+                orderBy ? orderBy : ""
+              } OFFSET ${offset} LIMIT ${limit} `,
             };
 
       console.log("querySpec: ", querySpec);

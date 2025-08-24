@@ -61,7 +61,7 @@ class Model {
             throw error;
         }
     }
-    async find({ filter, fields, limit = 100, offset = 0, }) {
+    async find({ filter, fields, limit = 100, offset = 0, orderBy, }) {
         try {
             const projection = fields
                 ? Object.entries(fields)
@@ -73,11 +73,11 @@ class Model {
             let parameters = built?.params;
             const querySpec = parameters && parameters.length
                 ? {
-                    query: `SELECT ${projection} FROM c${whereSql} OFFSET ${offset} LIMIT ${limit}`,
+                    query: `SELECT ${projection} FROM c${whereSql} ${orderBy ? orderBy : ""} OFFSET ${offset} LIMIT ${limit} `,
                     parameters,
                 }
                 : {
-                    query: `SELECT ${projection} FROM c${whereSql} OFFSET ${offset} LIMIT ${limit}`,
+                    query: `SELECT ${projection} FROM c${whereSql} ${orderBy ? orderBy : ""} OFFSET ${offset} LIMIT ${limit} `,
                 };
             console.log("querySpec: ", querySpec);
             const iterator = this._collection.items.query(querySpec);

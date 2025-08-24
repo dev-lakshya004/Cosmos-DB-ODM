@@ -12,6 +12,17 @@ class QB {
             value: value,
         };
     }
+    asc(field) {
+        let query = `c.${field.name} ASC`;
+        return query;
+    }
+    desc(field) {
+        let query = `c.${field.name} DESC`;
+        return query;
+    }
+    order(...fields) {
+        return "ORDER BY " + fields.join(", ");
+    }
     eq(field, value) {
         const param = this.addParam(value);
         return new QB({ name: `c.${field.name} = ${param.name}` }, [
@@ -106,7 +117,7 @@ class QB {
         };
     }
 }
-QB.globalParamCounter = 0; // Static counter to ensure unique param names
+QB.globalParamCounter = 0;
 const qb = () => new QB();
 export { QB, qb };
 //# sourceMappingURL=QueryBuilder.js.map

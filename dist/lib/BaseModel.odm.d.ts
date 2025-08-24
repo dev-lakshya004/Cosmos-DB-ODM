@@ -15,11 +15,12 @@ declare class Model<T extends ZodObject<any>> {
     insert(doc: z.infer<T>): Promise<z.infer<T> | null>;
     insertMany(docs: z.infer<T>[]): Promise<z.infer<T>[]>;
     findById(id: string, partitionKey?: string): Promise<z.infer<T> | null>;
-    find({ filter, fields, limit, offset, }: {
+    find({ filter, fields, limit, offset, orderBy, }: {
         filter?: QB;
         fields?: FieldsFromSchema<T>;
         limit?: number;
         offset?: number;
+        orderBy?: string;
     }): Promise<{
         resources: z.infer<T>[];
     } | null>;

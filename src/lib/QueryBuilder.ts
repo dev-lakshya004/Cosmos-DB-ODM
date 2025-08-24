@@ -3,7 +3,7 @@ import { SqlParameter } from "@azure/cosmos";
 class QB {
   private query: { name: string };
   private params: SqlParameter[];
-  private static globalParamCounter = 0; // Static counter to ensure unique param names
+  private static globalParamCounter = 0;
 
   constructor(
     query: { name: string } = { name: "" },
@@ -24,7 +24,21 @@ class QB {
     };
   }
 
-  eq(field: {name: string}, value: number | string) {
+  asc(field: { name: string }): string {
+    let query = `c.${field.name} ASC`;
+    return query;
+  }
+
+  desc(field: { name: string }): string {
+    let query = `c.${field.name} DESC`;
+    return query;
+  }
+
+  order(...fields: Array<string>) {
+    return "ORDER BY " + fields.join(", ");
+  }
+
+  eq(field: { name: string }, value: number | string) {
     const param = this.addParam(value);
     return new QB({ name: `c.${field.name} = ${param.name}` }, [
       ...this.params,
@@ -32,7 +46,7 @@ class QB {
     ]);
   }
 
-  gt(field: {name: string}, value: number) {
+  gt(field: { name: string }, value: number) {
     const param = this.addParam(value);
     return new QB({ name: `c.${field.name} > ${param.name}` }, [
       ...this.params,
@@ -40,7 +54,7 @@ class QB {
     ]);
   }
 
-  gte(field: {name: string}, value: number) {
+  gte(field: { name: string }, value: number) {
     const param = this.addParam(value);
     return new QB({ name: `c.${field.name} >= ${param.name}` }, [
       ...this.params,
@@ -48,7 +62,7 @@ class QB {
     ]);
   }
 
-  lt(field: {name: string}, value: number) {
+  lt(field: { name: string }, value: number) {
     const param = this.addParam(value);
     return new QB({ name: `c.${field.name} < ${param.name}` }, [
       ...this.params,
@@ -56,7 +70,7 @@ class QB {
     ]);
   }
 
-  lte(field: {name: string}, value: number) {
+  lte(field: { name: string }, value: number) {
     const param = this.addParam(value);
     return new QB({ name: `c.${field.name} <= ${param.name}` }, [
       ...this.params,
@@ -64,7 +78,7 @@ class QB {
     ]);
   }
 
-  inArray(field: {name: string}, values: (number | string)[]) {
+  inArray(field: { name: string }, values: (number | string)[]) {
     const params = values.map((v) => ({
       name: this.nextParamName(),
       value: v,
@@ -76,7 +90,7 @@ class QB {
     ]);
   }
 
-  ieq(field: {name: string}, value: string) {
+  ieq(field: { name: string }, value: string) {
     const param = this.addParam(value.toLowerCase());
     return new QB({ name: `LOWER(c.${field.name}) = ${param.name}` }, [
       ...this.params,
@@ -84,7 +98,7 @@ class QB {
     ]);
   }
 
-  ilike(field: {name: string}, value: string) {
+  ilike(field: { name: string }, value: string) {
     const param = this.addParam(value.toLowerCase());
     return new QB({ name: `CONTAINS(LOWER(c.${field.name}), ${param.name})` }, [
       ...this.params,
@@ -92,7 +106,7 @@ class QB {
     ]);
   }
 
-  ne(field: {name: string}, value: number | string) {
+  ne(field: { name: string }, value: number | string) {
     const param = this.addParam(value);
     return new QB({ name: `c.${field.name} != ${param.name}` }, [
       ...this.params,
