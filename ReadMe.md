@@ -143,6 +143,20 @@ const filtered = await User.count({
 });
 ```
 
+## Order By
+
+```c
+// Getting result in descending order of ages
+ const user_desc = await User.find({
+  orderBy: q.order(q.desc(User.fields.age)),
+});
+
+// Getting result in ascending order of ages
+ const user_asc = await User.find({
+  orderBy: q.order(q.asc(User.fields.age)),
+});
+```
+
 ---
 
 # 📚 API Reference
@@ -186,6 +200,9 @@ Schema-aware, type-safe query builder.
 | `.ilike(field, value)` | Case-insensitive contains |
 | `.and(...conditions)` | Combine with AND |
 | `.or(...conditions)` | Combine with OR |
+| `.desc(field)` | Helper to add descending order |
+| `.asc(field)` | Helper to add ascending order |
+| `.order(...fields)` | To combine asc and desc functions values together |
 | `.build()` | Returns `{ query, params }` |
 
 ---
