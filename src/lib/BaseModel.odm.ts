@@ -24,9 +24,33 @@ class Model<T extends ZodObject<any>> {
     });
   }
 
-  private defineModel<S extends z.ZodObject<any>>(schema: S) {
+  // private defineModel<S extends z.ZodObject<any>>(schema: S) {
+  //   const fields = Object.keys(schema.shape).reduce((acc, key) => {
+  //     acc[key as keyof z.infer<S>] = { name: key } as any;
+  //     return acc;
+  //   }, {} as FieldsFromSchema<S>);
+
+  //   return fields;
+  // }
+
+  private defineModel<S extends z.ZodObject<any>>(
+    schema: S,
+    prefix = ""
+  ): FieldsFromSchema<S> {
     const fields = Object.keys(schema.shape).reduce((acc, key) => {
-      acc[key as keyof z.infer<S>] = { name: key } as any;
+      const fieldSchema = schema.shape[key];
+
+      const fullName = prefix ? `${prefix}.${key}` : key;
+
+      if (fieldSchema instanceof z.ZodObject) {
+        acc[key as keyof z.infer<S>] = {
+          name: fullName,
+          ...(this.defineModel(fieldSchema, fullName) as any),
+        };
+      } else {
+        acc[key as keyof z.infer<S>] = { name: fullName } as any;
+      }
+
       return acc;
     }, {} as FieldsFromSchema<S>);
 

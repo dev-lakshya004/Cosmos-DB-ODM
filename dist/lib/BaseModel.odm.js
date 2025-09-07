@@ -1,3 +1,4 @@
+import z from "zod";
 class Model {
     constructor(schema, collection) {
         this._schema = schema;
@@ -10,9 +11,26 @@ class Model {
             });
         });
     }
-    defineModel(schema) {
+    // private defineModel<S extends z.ZodObject<any>>(schema: S) {
+    //   const fields = Object.keys(schema.shape).reduce((acc, key) => {
+    //     acc[key as keyof z.infer<S>] = { name: key } as any;
+    //     return acc;
+    //   }, {} as FieldsFromSchema<S>);
+    //   return fields;
+    // }
+    defineModel(schema, prefix = "") {
         const fields = Object.keys(schema.shape).reduce((acc, key) => {
-            acc[key] = { name: key };
+            const fieldSchema = schema.shape[key];
+            const fullName = prefix ? `${prefix}.${key}` : key;
+            if (fieldSchema instanceof z.ZodObject) {
+                acc[key] = {
+                    name: fullName,
+                    ...this.defineModel(fieldSchema, fullName),
+                };
+            }
+            else {
+                acc[key] = { name: fullName };
+            }
             return acc;
         }, {});
         return fields;
