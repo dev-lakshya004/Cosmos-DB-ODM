@@ -249,8 +249,8 @@ class Model<T extends ZodObject<any>> {
         validatedDocs.data.map(async (doc) => {
           const { resource } = await this._collection
             .item(
-              (doc.id || "").toString(),
-              (doc.partitionKey || doc.id || "").toString()
+              (doc.id || "none").toString(),
+              (doc.partitionKey || doc.id || "none").toString()
             )
             .replace(doc);
           return resource;
