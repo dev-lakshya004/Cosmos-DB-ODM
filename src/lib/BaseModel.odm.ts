@@ -236,14 +236,6 @@ class Model<T extends ZodObject<any>> {
       let updateFailed = 0;
 
       const updatedDocs = await Promise.all(
-        validatedDocs.data.map(async (doc) => {
-          const { resource } = await this._collection
-            .item(
-              (doc.id || "none").toString(),
-              (doc.partitionKey || doc.id || "none").toString()
-            )
-            .replace(doc);
-          return resource;
         mergedDocs.map(async (doc) => {
           try {
             const { resource } = await this._collection.items.upsert(doc);
