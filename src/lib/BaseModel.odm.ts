@@ -57,7 +57,7 @@ class Model<T extends ZodObject<any>> {
     return fields;
   }
 
-  async insert(doc: z.infer<T>): Promise<z.infer<T> | null> {
+  async insert(doc: z.infer<T>): Promise<{ resource: z.infer<T> | null }> {
     try {
       const validatedDoc = this._schema.safeParse(doc);
       if (!validatedDoc.success) {
@@ -66,14 +66,14 @@ class Model<T extends ZodObject<any>> {
       const { resource } = await this._collection.items.create(
         validatedDoc.data
       );
-      return resource as z.infer<T>;
+      return { resource: resource as z.infer<T> };
     } catch (error: any) {
       console.log("error", error);
-      throw error;
+      throw new Error(error.message || error);
     }
   }
 
-  async insertMany(docs: z.infer<T>[]): Promise<z.infer<T>[]> {
+  async insertMany(docs: z.infer<T>[]): Promise<{ resources: z.infer<T>[] }> {
     try {
       const validatedDocs = this._schema.array().safeParse(docs);
       if (!validatedDocs.success) {
@@ -89,24 +89,29 @@ class Model<T extends ZodObject<any>> {
         })
       );
 
-      return resources;
+      return { resources: resources };
     } catch (error: any) {
       console.log("error", error);
       throw error;
     }
   }
 
-  async findById(
-    id: string,
-    partitionKey: string = id
-  ): Promise<z.infer<T> | null> {
+  async findById(id: string): Promise<{ resource: z.infer<T> | null }> {
     try {
-      const { resource } = await this._collection.item(id, partitionKey).read();
+      const query = `SELECT * FROM c WHERE c.id = @id`;
+      const parameters: SqlParameter[] = [{ name: "@id", value: id }];
 
-      if (!resource) {
-        return null;
+      const { resources } = await this._collection.items
+        .query({
+          query,
+          parameters,
+        })
+        .fetchAll();
+
+      if (!resources?.length) {
+        return { resource: null };
       }
-      return resource;
+      return { resource: resources[0] };
     } catch (error: any) {
       console.log("error", error);
       throw error;
@@ -165,26 +170,22 @@ class Model<T extends ZodObject<any>> {
       return { resources: resources as z.infer<T>[] };
     } catch (error: any) {
       console.log("error", error);
-      throw error;
+      throw new Error(error.message || error);
     }
   }
 
   async updateById({
     doc,
     id,
-    partitionKey = id,
   }: {
     doc: z.infer<T>;
     id: string;
-    partitionKey: string;
-  }): Promise<z.infer<T> | null> {
+  }): Promise<{ resourse: z.infer<T> | null }> {
     if (!doc) {
       throw new Error("Nothing To Update");
     }
     try {
-      const { resource: existingDoc } = await this._collection
-        .item(id, partitionKey)
-        .read();
+      const { resource: existingDoc } = await this.findById(id);
       if (!existingDoc) {
         throw new Error("Document not found");
       }
@@ -192,32 +193,23 @@ class Model<T extends ZodObject<any>> {
       if (typeof existingDoc === "object" && existingDoc !== null) {
         const mergedDoc = { ...existingDoc, ...doc };
 
-        const validatedDoc = this._schema.safeParse(mergedDoc);
-        if (!validatedDoc.success) {
-          throw new Error(validatedDoc.error.message);
-        }
+        const { resource } = await this._collection.items.upsert(mergedDoc);
 
-        const { resource } = await this._collection
-          .item(id, partitionKey)
-          .replace(validatedDoc.data);
-
-        return resource as z.infer<T>;
+        return { resourse: resource as z.infer<T> };
       }
 
       throw new Error("Cannot merge non-object types");
     } catch (error: any) {
       console.log("error", error);
-      throw error;
+      throw new Error(error.message || error);
     }
   }
 
-  async update({
-    doc,
-    filter,
-  }: {
-    doc: z.infer<T>;
-    filter: QB;
-  }): Promise<z.infer<T>[]> {
+  async update({ doc, filter }: { doc: z.infer<T>; filter: QB }): Promise<{
+    resources: z.infer<T>[];
+    itemsUpdated: number;
+    updateFailed: number;
+  }> {
     if (!doc) {
       throw new Error("Nothing To Update");
     }
@@ -240,27 +232,29 @@ class Model<T extends ZodObject<any>> {
         throw new Error("Cannot merge non-object types");
       });
 
-      const validatedDocs = this._schema.array().safeParse(mergedDocs);
-      if (!validatedDocs.success) {
-        throw new Error(validatedDocs.error.message);
-      }
+      let itemsUpdated = 0;
+      let updateFailed = 0;
 
       const updatedDocs = await Promise.all(
-        validatedDocs.data.map(async (doc) => {
-          const { resource } = await this._collection
-            .item(
-              (doc.id || "").toString(),
-              (doc.partitionKey || doc.id || "").toString()
-            )
-            .replace(doc);
-          return resource;
+        mergedDocs.map(async (doc) => {
+          try {
+            const { resource } = await this._collection.items.upsert(doc);
+            itemsUpdated++;
+            return resource;
+          } catch (error) {
+            updateFailed++;
+          }
         })
       );
 
-      return updatedDocs as z.infer<T>[];
+      return {
+        resources: updatedDocs as z.infer<T>[],
+        itemsUpdated,
+        updateFailed,
+      };
     } catch (error: any) {
       console.log("error", error);
-      throw error;
+      throw new Error(error.message || error);
     }
   }
 
@@ -295,17 +289,22 @@ class Model<T extends ZodObject<any>> {
       return resources[0] || 0;
     } catch (error: any) {
       console.log("error", error);
-      throw error;
+      throw new Error(error.message || error);
     }
   }
 
-  async deleteById(id: string, partitionKey: string = id): Promise<Boolean> {
+  async deleteById(
+    id: string,
+    partitionKey: string = id
+  ): Promise<{ deleted: boolean }> {
     try {
       await this._collection.item(id, partitionKey).delete();
-      return true;
+      return {
+        deleted: true,
+      };
     } catch (error: any) {
       console.log("error", error);
-      throw error;
+      throw new Error(error.message || error);
     }
   }
 }
