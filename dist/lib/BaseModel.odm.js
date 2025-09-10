@@ -164,7 +164,7 @@ class Model {
             }
             const updatedDocs = await Promise.all(validatedDocs.data.map(async (doc) => {
                 const { resource } = await this._collection
-                    .item((doc.id || "").toString(), (doc.partitionKey || doc.id || "").toString())
+                    .item((doc.id || "none").toString(), (doc.partitionKey || doc.id || "none").toString())
                     .replace(doc);
                 return resource;
             }));
