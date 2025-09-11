@@ -1,9 +1,24 @@
 import { Container, SqlParameter } from "@azure/cosmos";
 import z, { ZodObject } from "zod";
 import { QB } from "./QueryBuilder";
+import { error } from "console";
 
 type FieldsFromSchema<T extends z.ZodObject<any>> = {
   [K in keyof z.infer<T>]: { name: string };
+};
+
+type StandarOutput<T extends z.ZodObject<any>> = {
+  resource?: z.infer<T> | null;
+  resources?: z.infer<T>[] | [];
+  count?: number | 0;
+  deleted?: boolean | false;
+  itemsUpdated?: number | 0;
+  itemsFailed?: number | 0;
+  error?: Error | Error[];
+  querySpec?: {
+    query: string;
+    parameters?: SqlParameter[];
+  };
 };
 
 class Model<T extends ZodObject<any>> {
@@ -23,15 +38,6 @@ class Model<T extends ZodObject<any>> {
       });
     });
   }
-
-  // private defineModel<S extends z.ZodObject<any>>(schema: S) {
-  //   const fields = Object.keys(schema.shape).reduce((acc, key) => {
-  //     acc[key as keyof z.infer<S>] = { name: key } as any;
-  //     return acc;
-  //   }, {} as FieldsFromSchema<S>);
-
-  //   return fields;
-  // }
 
   private defineModel<S extends z.ZodObject<any>>(
     schema: S,
@@ -57,7 +63,7 @@ class Model<T extends ZodObject<any>> {
     return fields;
   }
 
-  async insert(doc: z.infer<T>): Promise<{ resource: z.infer<T> | null }> {
+  async insert(doc: z.infer<T>): Promise<StandarOutput<T>> {
     try {
       const validatedDoc = this._schema.safeParse(doc);
       if (!validatedDoc.success) {
@@ -66,14 +72,18 @@ class Model<T extends ZodObject<any>> {
       const { resource } = await this._collection.items.create(
         validatedDoc.data
       );
-      return { resource: resource as z.infer<T> };
+      return { resource: resource as z.infer<T>, count: 1, itemsUpdated: 1 };
     } catch (error: any) {
-      console.log("error", error);
-      throw new Error(error.message || error);
+      return {
+        resource: null,
+        count: 0,
+        itemsFailed: 1,
+        error: error,
+      };
     }
   }
 
-  async insertMany(docs: z.infer<T>[]): Promise<{ resources: z.infer<T>[] }> {
+  async insertMany(docs: z.infer<T>[]): Promise<StandarOutput<T>> {
     try {
       const validatedDocs = this._schema.array().safeParse(docs);
       if (!validatedDocs.success) {
@@ -89,14 +99,22 @@ class Model<T extends ZodObject<any>> {
         })
       );
 
-      return { resources: resources };
+      return {
+        resources: resources,
+        count: resources.length,
+        itemsUpdated: resources.length,
+      };
     } catch (error: any) {
-      console.log("error", error);
-      throw error;
+      return {
+        resources: [],
+        count: 0,
+        itemsFailed: docs.length,
+        error: error,
+      };
     }
   }
 
-  async findById(id: string): Promise<{ resource: z.infer<T> | null }> {
+  async findById(id: string): Promise<StandarOutput<T>> {
     try {
       const query = `SELECT * FROM c WHERE c.id = @id`;
       const parameters: SqlParameter[] = [{ name: "@id", value: id }];
@@ -111,10 +129,9 @@ class Model<T extends ZodObject<any>> {
       if (!resources?.length) {
         return { resource: null };
       }
-      return { resource: resources[0] };
+      return { resource: resources[0], count: 1 };
     } catch (error: any) {
-      console.log("error", error);
-      throw error;
+      return { resource: null, error: error, count: 0 };
     }
   }
 
@@ -130,7 +147,7 @@ class Model<T extends ZodObject<any>> {
     limit?: number;
     offset?: number;
     orderBy?: string;
-  }): Promise<{ resources: z.infer<T>[] } | null> {
+  }): Promise<StandarOutput<T>> {
     try {
       const projection = fields
         ? Object.entries(fields)
@@ -157,20 +174,17 @@ class Model<T extends ZodObject<any>> {
               } OFFSET ${offset} LIMIT ${limit} `,
             };
 
-      console.log("querySpec: ", querySpec);
-
       const iterator = this._collection.items.query(querySpec);
 
       const { resources } = await iterator.fetchAll();
 
-      if (!resources || !resources.length) {
-        return { resources: [] };
-      }
-
-      return { resources: resources as z.infer<T>[] };
+      return {
+        resources: resources as z.infer<T>[],
+        count: resources.length,
+        querySpec,
+      };
     } catch (error: any) {
-      console.log("error", error);
-      throw new Error(error.message || error);
+      return { resources: [], error: error, count: 0 };
     }
   }
 
@@ -180,7 +194,7 @@ class Model<T extends ZodObject<any>> {
   }: {
     doc: z.infer<T>;
     id: string;
-  }): Promise<{ resourse: z.infer<T> | null }> {
+  }): Promise<StandarOutput<T>> {
     if (!doc) {
       throw new Error("Nothing To Update");
     }
@@ -195,21 +209,26 @@ class Model<T extends ZodObject<any>> {
 
         const { resource } = await this._collection.items.upsert(mergedDoc);
 
-        return { resourse: resource as z.infer<T> };
+        return { resource: resource as z.infer<T>, itemsUpdated: 1, count: 1 };
       }
 
       throw new Error("Cannot merge non-object types");
     } catch (error: any) {
-      console.log("error", error);
-      throw new Error(error.message || error);
+      return {
+        resource: null,
+        error: error,
+        itemsFailed: 1,
+      };
     }
   }
 
-  async update({ doc, filter }: { doc: z.infer<T>; filter: QB }): Promise<{
-    resources: z.infer<T>[];
-    itemsUpdated: number;
-    updateFailed: number;
-  }> {
+  async update({
+    doc,
+    filter,
+  }: {
+    doc: z.infer<T>;
+    filter: QB;
+  }): Promise<StandarOutput<T>> {
     if (!doc) {
       throw new Error("Nothing To Update");
     }
@@ -218,13 +237,13 @@ class Model<T extends ZodObject<any>> {
       throw new Error("Filter is required");
     }
     try {
-      const existingDocs = await this.find({ filter });
+      const { resources: existingDocs } = await this.find({ filter });
 
-      if (!existingDocs?.resources.length) {
+      if (!existingDocs?.length) {
         throw new Error("Documents not found");
       }
 
-      const mergedDocs = existingDocs.resources.map((edoc) => {
+      const mergedDocs = existingDocs.map((edoc) => {
         if (typeof edoc === "object" && edoc !== null) {
           const mergedDoc = { ...edoc, ...doc };
           return mergedDoc;
@@ -234,6 +253,7 @@ class Model<T extends ZodObject<any>> {
 
       let itemsUpdated = 0;
       let updateFailed = 0;
+      let errorStack: Error[] = [];
 
       const updatedDocs = await Promise.all(
         mergedDocs.map(async (doc) => {
@@ -241,8 +261,9 @@ class Model<T extends ZodObject<any>> {
             const { resource } = await this._collection.items.upsert(doc);
             itemsUpdated++;
             return resource;
-          } catch (error) {
+          } catch (error: any) {
             updateFailed++;
+            errorStack.push(error);
           }
         })
       );
@@ -250,18 +271,25 @@ class Model<T extends ZodObject<any>> {
       return {
         resources: updatedDocs as z.infer<T>[],
         itemsUpdated,
-        updateFailed,
+        itemsFailed: updateFailed,
+        count: itemsUpdated,
+        error: errorStack,
       };
     } catch (error: any) {
-      console.log("error", error);
-      throw new Error(error.message || error);
+      return {
+        resources: [],
+        count: 0,
+        error: error,
+      };
     }
   }
 
   async count({
     filter,
     field,
-  }: { filter?: QB; field?: { name: string } } = {}): Promise<number> {
+  }: { filter?: QB; field?: { name: string } } = {}): Promise<
+    StandarOutput<T>
+  > {
     try {
       const countField = field ? `c.${field.name}` : "1";
       if (filter) {
@@ -280,31 +308,84 @@ class Model<T extends ZodObject<any>> {
         const { resources } = await this._collection.items
           .query(querySpec)
           .fetchAll();
-        return resources[0] || 0;
+        return {
+          resources: resources,
+          count: resources[0] || 0,
+          querySpec,
+        };
       }
+
+      let querySpec = { query: `SELECT VALUE COUNT(${countField}) FROM c` };
       const { resources } = await this._collection.items
-        .query(`SELECT VALUE COUNT(${countField}) FROM c`)
+        .query(querySpec.query)
         .fetchAll();
 
-      return resources[0] || 0;
+      return {
+        resources: resources,
+        count: resources[0] || 0,
+        querySpec: { query: `SELECT VALUE COUNT(${countField}) FROM c` },
+      };
     } catch (error: any) {
-      console.log("error", error);
-      throw new Error(error.message || error);
+      return { resources: [], count: 0, error: error };
     }
   }
 
   async deleteById(
     id: string,
     partitionKey: string = id
-  ): Promise<{ deleted: boolean }> {
+  ): Promise<StandarOutput<T>> {
     try {
       await this._collection.item(id, partitionKey).delete();
       return {
         deleted: true,
+        count: 1,
+        itemsUpdated: 1,
       };
     } catch (error: any) {
-      console.log("error", error);
-      throw new Error(error.message || error);
+      return { deleted: false, error: error, itemsFailed: 1 };
+    }
+  }
+
+  async deleteByFilter({ filter }: { filter: QB }): Promise<StandarOutput<T>> {
+    try {
+      if (!filter) {
+        throw new Error("Filter is Required");
+      }
+      const { resources: itemToDelete } = await this.find({ filter });
+
+      if (!itemToDelete?.length) {
+        throw new Error("No Document found to Delete.");
+      }
+
+      let itemsFailed = 0;
+      let itemsDeleted = 0;
+      let errorStack: Error[] = [];
+      await Promise.all(
+        itemToDelete.map(async (doc) => {
+          let { deleted, error } = await this.deleteById(
+            (doc?.id || "").toString(),
+            (doc?.partitionKey || doc?.id || "").toString()
+          );
+
+          if (deleted) itemsDeleted++;
+          else {
+            itemsFailed++;
+            errorStack.push(error as Error);
+          }
+        })
+      );
+
+      return {
+        deleted: true,
+        itemsUpdated: itemsDeleted,
+        itemsFailed: itemsFailed,
+        error: errorStack,
+      };
+    } catch (error: any) {
+      return {
+        deleted: false,
+        error: error,
+      };
     }
   }
 }

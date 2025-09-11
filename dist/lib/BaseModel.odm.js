@@ -11,13 +11,6 @@ class Model {
             });
         });
     }
-    // private defineModel<S extends z.ZodObject<any>>(schema: S) {
-    //   const fields = Object.keys(schema.shape).reduce((acc, key) => {
-    //     acc[key as keyof z.infer<S>] = { name: key } as any;
-    //     return acc;
-    //   }, {} as FieldsFromSchema<S>);
-    //   return fields;
-    // }
     defineModel(schema, prefix = "") {
         const fields = Object.keys(schema.shape).reduce((acc, key) => {
             const fieldSchema = schema.shape[key];
@@ -42,11 +35,15 @@ class Model {
                 throw new Error(validatedDoc.error.message);
             }
             const { resource } = await this._collection.items.create(validatedDoc.data);
-            return resource;
+            return { resource: resource, count: 1, itemsUpdated: 1 };
         }
         catch (error) {
-            console.log("error", error);
-            throw error;
+            return {
+                resource: null,
+                count: 0,
+                itemsFailed: 1,
+                error: error,
+            };
         }
     }
     async insertMany(docs) {
@@ -59,24 +56,38 @@ class Model {
                 const { resource } = await this._collection.items.create(doc);
                 return resource;
             }));
-            return resources;
+            return {
+                resources: resources,
+                count: resources.length,
+                itemsUpdated: resources.length,
+            };
         }
         catch (error) {
-            console.log("error", error);
-            throw error;
+            return {
+                resources: [],
+                count: 0,
+                itemsFailed: docs.length,
+                error: error,
+            };
         }
     }
-    async findById(id, partitionKey = id) {
+    async findById(id) {
         try {
-            const { resource } = await this._collection.item(id, partitionKey).read();
-            if (!resource) {
-                return null;
+            const query = `SELECT * FROM c WHERE c.id = @id`;
+            const parameters = [{ name: "@id", value: id }];
+            const { resources } = await this._collection.items
+                .query({
+                query,
+                parameters,
+            })
+                .fetchAll();
+            if (!resources?.length) {
+                return { resource: null };
             }
-            return resource;
+            return { resource: resources[0], count: 1 };
         }
         catch (error) {
-            console.log("error", error);
-            throw error;
+            return { resource: null, error: error, count: 0 };
         }
     }
     async find({ filter, fields, limit = 100, offset = 0, orderBy, }) {
@@ -97,46 +108,40 @@ class Model {
                 : {
                     query: `SELECT ${projection} FROM c${whereSql} ${orderBy ? orderBy : ""} OFFSET ${offset} LIMIT ${limit} `,
                 };
-            console.log("querySpec: ", querySpec);
             const iterator = this._collection.items.query(querySpec);
             const { resources } = await iterator.fetchAll();
-            if (!resources || !resources.length) {
-                return { resources: [] };
-            }
-            return { resources: resources };
+            return {
+                resources: resources,
+                count: resources.length,
+                querySpec,
+            };
         }
         catch (error) {
-            console.log("error", error);
-            throw error;
+            return { resources: [], error: error, count: 0 };
         }
     }
-    async updateById({ doc, id, partitionKey = id, }) {
+    async updateById({ doc, id, }) {
         if (!doc) {
             throw new Error("Nothing To Update");
         }
         try {
-            const { resource: existingDoc } = await this._collection
-                .item(id, partitionKey)
-                .read();
+            const { resource: existingDoc } = await this.findById(id);
             if (!existingDoc) {
                 throw new Error("Document not found");
             }
             if (typeof existingDoc === "object" && existingDoc !== null) {
                 const mergedDoc = { ...existingDoc, ...doc };
-                const validatedDoc = this._schema.safeParse(mergedDoc);
-                if (!validatedDoc.success) {
-                    throw new Error(validatedDoc.error.message);
-                }
-                const { resource } = await this._collection
-                    .item(id, partitionKey)
-                    .replace(validatedDoc.data);
-                return resource;
+                const { resource } = await this._collection.items.upsert(mergedDoc);
+                return { resource: resource, itemsUpdated: 1, count: 1 };
             }
             throw new Error("Cannot merge non-object types");
         }
         catch (error) {
-            console.log("error", error);
-            throw error;
+            return {
+                resource: null,
+                error: error,
+                itemsFailed: 1,
+            };
         }
     }
     async update({ doc, filter, }) {
@@ -147,32 +152,45 @@ class Model {
             throw new Error("Filter is required");
         }
         try {
-            const existingDocs = await this.find({ filter });
-            if (!existingDocs?.resources.length) {
+            const { resources: existingDocs } = await this.find({ filter });
+            if (!existingDocs?.length) {
                 throw new Error("Documents not found");
             }
-            const mergedDocs = existingDocs.resources.map((edoc) => {
+            const mergedDocs = existingDocs.map((edoc) => {
                 if (typeof edoc === "object" && edoc !== null) {
                     const mergedDoc = { ...edoc, ...doc };
                     return mergedDoc;
                 }
                 throw new Error("Cannot merge non-object types");
             });
-            const validatedDocs = this._schema.array().safeParse(mergedDocs);
-            if (!validatedDocs.success) {
-                throw new Error(validatedDocs.error.message);
-            }
-            const updatedDocs = await Promise.all(validatedDocs.data.map(async (doc) => {
-                const { resource } = await this._collection
-                    .item((doc.id || "none").toString(), (doc.partitionKey || doc.id || "none").toString())
-                    .replace(doc);
-                return resource;
+            let itemsUpdated = 0;
+            let updateFailed = 0;
+            let errorStack = [];
+            const updatedDocs = await Promise.all(mergedDocs.map(async (doc) => {
+                try {
+                    const { resource } = await this._collection.items.upsert(doc);
+                    itemsUpdated++;
+                    return resource;
+                }
+                catch (error) {
+                    updateFailed++;
+                    errorStack.push(error);
+                }
             }));
-            return updatedDocs;
+            return {
+                resources: updatedDocs,
+                itemsUpdated,
+                itemsFailed: updateFailed,
+                count: itemsUpdated,
+                error: errorStack,
+            };
         }
         catch (error) {
-            console.log("error", error);
-            throw error;
+            return {
+                resources: [],
+                count: 0,
+                error: error,
+            };
         }
     }
     async count({ filter, field, } = {}) {
@@ -191,26 +209,72 @@ class Model {
                 const { resources } = await this._collection.items
                     .query(querySpec)
                     .fetchAll();
-                return resources[0] || 0;
+                return {
+                    resources: resources,
+                    count: resources[0] || 0,
+                    querySpec,
+                };
             }
+            let querySpec = { query: `SELECT VALUE COUNT(${countField}) FROM c` };
             const { resources } = await this._collection.items
-                .query(`SELECT VALUE COUNT(${countField}) FROM c`)
+                .query(querySpec.query)
                 .fetchAll();
-            return resources[0] || 0;
+            return {
+                resources: resources,
+                count: resources[0] || 0,
+                querySpec: { query: `SELECT VALUE COUNT(${countField}) FROM c` },
+            };
         }
         catch (error) {
-            console.log("error", error);
-            throw error;
+            return { resources: [], count: 0, error: error };
         }
     }
     async deleteById(id, partitionKey = id) {
         try {
             await this._collection.item(id, partitionKey).delete();
-            return true;
+            return {
+                deleted: true,
+                count: 1,
+                itemsUpdated: 1,
+            };
         }
         catch (error) {
-            console.log("error", error);
-            throw error;
+            return { deleted: false, error: error, itemsFailed: 1 };
+        }
+    }
+    async deleteByFilter({ filter }) {
+        try {
+            if (!filter) {
+                throw new Error("Filter is Required");
+            }
+            const { resources: itemToDelete } = await this.find({ filter });
+            if (!itemToDelete?.length) {
+                throw new Error("No Document found to Delete.");
+            }
+            let itemsFailed = 0;
+            let itemsDeleted = 0;
+            let errorStack = [];
+            await Promise.all(itemToDelete.map(async (doc) => {
+                let { deleted, error } = await this.deleteById((doc?.id || "").toString(), (doc?.partitionKey || doc?.id || "").toString());
+                if (deleted)
+                    itemsDeleted++;
+                else {
+                    itemsFailed++;
+                    errorStack.push(error);
+                }
+            }));
+            return {
+                deleted: true,
+                itemsUpdated: itemsDeleted,
+                itemsFailed: itemsFailed,
+                error: errorStack,
+            };
+        }
+        catch (error) {
+            return {
+                deleted: false,
+                error: error,
+            };
         }
     }
 }
