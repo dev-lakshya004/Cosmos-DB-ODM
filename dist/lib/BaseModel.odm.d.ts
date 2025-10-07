@@ -14,6 +14,7 @@ type StandarOutput<T extends z.ZodObject<any>> = {
     itemsUpdated?: number | 0;
     itemsFailed?: number | 0;
     error?: Error | Error[];
+    success?: boolean;
     querySpec?: {
         query: string;
         parameters?: SqlParameter[];

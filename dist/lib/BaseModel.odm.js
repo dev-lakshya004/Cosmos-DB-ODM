@@ -35,7 +35,12 @@ class Model {
                 throw new Error(validatedDoc.error.message);
             }
             const { resource } = await this._collection.items.create(validatedDoc.data);
-            return { resource: resource, count: 1, itemsUpdated: 1 };
+            return {
+                resource: resource,
+                count: 1,
+                itemsUpdated: 1,
+                success: true,
+            };
         }
         catch (error) {
             return {
@@ -43,6 +48,7 @@ class Model {
                 count: 0,
                 itemsFailed: 1,
                 error: error,
+                success: false,
             };
         }
     }
@@ -60,6 +66,7 @@ class Model {
                 resources: resources,
                 count: resources.length,
                 itemsUpdated: resources.length,
+                success: true,
             };
         }
         catch (error) {
@@ -68,6 +75,7 @@ class Model {
                 count: 0,
                 itemsFailed: docs.length,
                 error: error,
+                success: false,
             };
         }
     }
@@ -84,10 +92,10 @@ class Model {
             if (!resources?.length) {
                 return { resource: null };
             }
-            return { resource: resources[0], count: 1 };
+            return { resource: resources[0], count: 1, success: true };
         }
         catch (error) {
-            return { resource: null, error: error, count: 0 };
+            return { resource: null, error: error, count: 0, success: false };
         }
     }
     async find({ filter, fields, limit = 100, offset = 0, orderBy, }) {
@@ -114,10 +122,11 @@ class Model {
                 resources: resources,
                 count: resources.length,
                 querySpec,
+                success: true,
             };
         }
         catch (error) {
-            return { resources: [], error: error, count: 0 };
+            return { resources: [], error: error, count: 0, success: false };
         }
     }
     async updateById({ doc, id, }) {
@@ -132,7 +141,12 @@ class Model {
             if (typeof existingDoc === "object" && existingDoc !== null) {
                 const mergedDoc = { ...existingDoc, ...doc };
                 const { resource } = await this._collection.items.upsert(mergedDoc);
-                return { resource: resource, itemsUpdated: 1, count: 1 };
+                return {
+                    resource: resource,
+                    itemsUpdated: 1,
+                    count: 1,
+                    success: true,
+                };
             }
             throw new Error("Cannot merge non-object types");
         }
@@ -141,6 +155,8 @@ class Model {
                 resource: null,
                 error: error,
                 itemsFailed: 1,
+                count: 0,
+                success: false,
             };
         }
     }
@@ -183,6 +199,7 @@ class Model {
                 itemsFailed: updateFailed,
                 count: itemsUpdated,
                 error: errorStack,
+                success: true,
             };
         }
         catch (error) {
@@ -190,6 +207,8 @@ class Model {
                 resources: [],
                 count: 0,
                 error: error,
+                itemsFailed: 1,
+                success: false,
             };
         }
     }
@@ -213,6 +232,7 @@ class Model {
                     resources: resources,
                     count: resources[0] || 0,
                     querySpec,
+                    success: true,
                 };
             }
             let querySpec = { query: `SELECT VALUE COUNT(${countField}) FROM c` };
@@ -223,10 +243,11 @@ class Model {
                 resources: resources,
                 count: resources[0] || 0,
                 querySpec: { query: `SELECT VALUE COUNT(${countField}) FROM c` },
+                success: true,
             };
         }
         catch (error) {
-            return { resources: [], count: 0, error: error };
+            return { resources: [], count: 0, error: error, success: false };
         }
     }
     async deleteById(id, partitionKey = id) {
@@ -236,10 +257,11 @@ class Model {
                 deleted: true,
                 count: 1,
                 itemsUpdated: 1,
+                success: true,
             };
         }
         catch (error) {
-            return { deleted: false, error: error, itemsFailed: 1 };
+            return { deleted: false, error: error, itemsFailed: 1, success: false };
         }
     }
     async deleteByFilter({ filter }) {
@@ -268,12 +290,15 @@ class Model {
                 itemsUpdated: itemsDeleted,
                 itemsFailed: itemsFailed,
                 error: errorStack,
+                success: true,
             };
         }
         catch (error) {
             return {
                 deleted: false,
                 error: error,
+                itemsFailed: 1,
+                success: false,
             };
         }
     }

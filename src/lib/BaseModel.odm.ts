@@ -15,6 +15,7 @@ type StandarOutput<T extends z.ZodObject<any>> = {
   itemsUpdated?: number | 0;
   itemsFailed?: number | 0;
   error?: Error | Error[];
+  success?: boolean;
   querySpec?: {
     query: string;
     parameters?: SqlParameter[];
@@ -72,13 +73,19 @@ class Model<T extends ZodObject<any>> {
       const { resource } = await this._collection.items.create(
         validatedDoc.data
       );
-      return { resource: resource as z.infer<T>, count: 1, itemsUpdated: 1 };
+      return {
+        resource: resource as z.infer<T>,
+        count: 1,
+        itemsUpdated: 1,
+        success: true,
+      };
     } catch (error: any) {
       return {
         resource: null,
         count: 0,
         itemsFailed: 1,
         error: error,
+        success: false,
       };
     }
   }
@@ -103,6 +110,7 @@ class Model<T extends ZodObject<any>> {
         resources: resources,
         count: resources.length,
         itemsUpdated: resources.length,
+        success: true,
       };
     } catch (error: any) {
       return {
@@ -110,6 +118,7 @@ class Model<T extends ZodObject<any>> {
         count: 0,
         itemsFailed: docs.length,
         error: error,
+        success: false,
       };
     }
   }
@@ -129,9 +138,9 @@ class Model<T extends ZodObject<any>> {
       if (!resources?.length) {
         return { resource: null };
       }
-      return { resource: resources[0], count: 1 };
+      return { resource: resources[0], count: 1, success: true };
     } catch (error: any) {
-      return { resource: null, error: error, count: 0 };
+      return { resource: null, error: error, count: 0, success: false };
     }
   }
 
@@ -182,9 +191,10 @@ class Model<T extends ZodObject<any>> {
         resources: resources as z.infer<T>[],
         count: resources.length,
         querySpec,
+        success: true,
       };
     } catch (error: any) {
-      return { resources: [], error: error, count: 0 };
+      return { resources: [], error: error, count: 0, success: false };
     }
   }
 
@@ -209,7 +219,12 @@ class Model<T extends ZodObject<any>> {
 
         const { resource } = await this._collection.items.upsert(mergedDoc);
 
-        return { resource: resource as z.infer<T>, itemsUpdated: 1, count: 1 };
+        return {
+          resource: resource as z.infer<T>,
+          itemsUpdated: 1,
+          count: 1,
+          success: true,
+        };
       }
 
       throw new Error("Cannot merge non-object types");
@@ -218,6 +233,8 @@ class Model<T extends ZodObject<any>> {
         resource: null,
         error: error,
         itemsFailed: 1,
+        count: 0,
+        success: false,
       };
     }
   }
@@ -274,12 +291,15 @@ class Model<T extends ZodObject<any>> {
         itemsFailed: updateFailed,
         count: itemsUpdated,
         error: errorStack,
+        success: true,
       };
     } catch (error: any) {
       return {
         resources: [],
         count: 0,
         error: error,
+        itemsFailed: 1,
+        success: false,
       };
     }
   }
@@ -312,6 +332,7 @@ class Model<T extends ZodObject<any>> {
           resources: resources,
           count: resources[0] || 0,
           querySpec,
+          success: true,
         };
       }
 
@@ -324,9 +345,10 @@ class Model<T extends ZodObject<any>> {
         resources: resources,
         count: resources[0] || 0,
         querySpec: { query: `SELECT VALUE COUNT(${countField}) FROM c` },
+        success: true,
       };
     } catch (error: any) {
-      return { resources: [], count: 0, error: error };
+      return { resources: [], count: 0, error: error, success: false };
     }
   }
 
@@ -340,9 +362,10 @@ class Model<T extends ZodObject<any>> {
         deleted: true,
         count: 1,
         itemsUpdated: 1,
+        success: true,
       };
     } catch (error: any) {
-      return { deleted: false, error: error, itemsFailed: 1 };
+      return { deleted: false, error: error, itemsFailed: 1, success: false };
     }
   }
 
@@ -380,11 +403,14 @@ class Model<T extends ZodObject<any>> {
         itemsUpdated: itemsDeleted,
         itemsFailed: itemsFailed,
         error: errorStack,
+        success: true,
       };
     } catch (error: any) {
       return {
         deleted: false,
         error: error,
+        itemsFailed: 1,
+        success: false,
       };
     }
   }
