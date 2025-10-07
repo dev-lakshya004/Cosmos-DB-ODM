@@ -1,44 +1,83 @@
-import { CosmosClient } from "@azure/cosmos";
+import { CosmosClient, PartitionKeyKind, } from "@azure/cosmos";
 export class DBConnection {
     constructor(endpoint, key) {
         this.DBInstances = new Map();
         this.CollectionStore = new Map();
-        this.client = new CosmosClient({ endpoint, key });
+        this.pendingDB = new Map();
+        this.pendingCollection = new Map();
+        if (!endpoint || !key) {
+            throw new Error("Cosmos DB endpoint and key are required.");
+        }
+        if (!DBConnection.sharedClient) {
+            DBConnection.sharedClient = new CosmosClient({ endpoint, key });
+        }
+        this.client = DBConnection.sharedClient;
     }
     validateName(name, type) {
         if (!name || typeof name !== "string" || !name.trim()) {
             throw new Error(`${type} name must be a non-empty string.`);
         }
+        if (/[/\\?#]/.test(name)) {
+            throw new Error(`${type} name contains invalid characters.`);
+        }
     }
     async connectDatabase(dbName) {
         this.validateName(dbName, "Database");
-        if (this.DBInstances.has(dbName)) {
+        if (this.DBInstances.has(dbName))
             return this.DBInstances.get(dbName);
-        }
-        const { database } = await this.client.databases.createIfNotExists({
-            id: dbName,
-        });
-        this.DBInstances.set(dbName, database);
-        return database;
+        if (this.pendingDB.has(dbName))
+            return this.pendingDB.get(dbName);
+        const promise = (async () => {
+            try {
+                const { database } = await this.client.databases.createIfNotExists({
+                    id: dbName,
+                });
+                this.DBInstances.set(dbName, database);
+                return database;
+            }
+            finally {
+                this.pendingDB.delete(dbName);
+            }
+        })();
+        this.pendingDB.set(dbName, promise);
+        return promise;
     }
-    async connectCollection(dbName, collectionName) {
+    async connectCollection(dbName, collectionName, partitionKey = "/id") {
         this.validateName(dbName, "Database");
         this.validateName(collectionName, "Collection");
         const db = await this.connectDatabase(dbName);
         if (this.CollectionStore.has(dbName)) {
             const dbCollections = this.CollectionStore.get(dbName);
-            if (dbCollections.has(collectionName)) {
+            if (dbCollections.has(collectionName))
                 return dbCollections.get(collectionName);
+        }
+        const key = `${dbName}:${collectionName}`;
+        if (this.pendingCollection.has(key))
+            return this.pendingCollection.get(key);
+        const promise = (async () => {
+            try {
+                const { container } = await db.containers.createIfNotExists({
+                    id: collectionName,
+                    partitionKey: { paths: [partitionKey], kind: PartitionKeyKind.Hash },
+                });
+                if (!this.CollectionStore.has(dbName)) {
+                    this.CollectionStore.set(dbName, new Map());
+                }
+                this.CollectionStore.get(dbName).set(collectionName, container);
+                return container;
             }
-        }
-        const { container } = await db.containers.createIfNotExists({
-            id: collectionName,
-        });
-        if (!this.CollectionStore.has(dbName)) {
-            this.CollectionStore.set(dbName, new Map());
-        }
-        this.CollectionStore.get(dbName).set(collectionName, container);
-        return container;
+            finally {
+                this.pendingCollection.delete(key);
+            }
+        })();
+        this.pendingCollection.set(key, promise);
+        return promise;
+    }
+    close() {
+        this.DBInstances.clear();
+        this.CollectionStore.clear();
+        this.pendingDB.clear();
+        this.pendingCollection.clear();
     }
 }
 //# sourceMappingURL=db.connection.js.map
