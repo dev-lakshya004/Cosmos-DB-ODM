@@ -54,6 +54,7 @@ declare class Model<T extends ZodObject<any>> {
     deleteByFilter({ filter }: {
         filter: QB;
     }): Promise<StandarOutput<T>>;
+    findByQuery(query: string, parameters?: SqlParameter[]): Promise<StandarOutput<T>>;
 }
 export { Model };
 //# sourceMappingURL=BaseModel.odm.d.ts.map

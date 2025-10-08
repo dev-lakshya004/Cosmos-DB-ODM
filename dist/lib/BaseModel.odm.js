@@ -302,6 +302,22 @@ class Model {
             };
         }
     }
+    async findByQuery(query, parameters) {
+        try {
+            const querySpec = parameters ? { query, parameters } : { query };
+            const { resources } = await this._collection.items
+                .query(querySpec)
+                .fetchAll();
+            return {
+                resources: resources,
+                count: resources.length,
+                success: true,
+            };
+        }
+        catch (error) {
+            return { resources: [], count: 0, error: error, success: false };
+        }
+    }
 }
 export { Model };
 //# sourceMappingURL=BaseModel.odm.js.map
