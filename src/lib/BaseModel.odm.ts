@@ -414,6 +414,27 @@ class Model<T extends ZodObject<any>> {
       };
     }
   }
+
+  async findByQuery(
+    query: string,
+    parameters?: SqlParameter[]
+  ): Promise<StandarOutput<T>> {
+    try {
+      const querySpec = parameters ? { query, parameters } : { query };
+
+      const { resources } = await this._collection.items
+        .query(querySpec)
+        .fetchAll();
+
+      return {
+        resources: resources,
+        count: resources.length,
+        success: true,
+      };
+    } catch (error: any) {
+      return { resources: [], count: 0, error: error, success: false };
+    }
+  }
 }
 
 export { Model };
