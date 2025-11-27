@@ -44,6 +44,9 @@ declare class QB {
     }, value: number | string): QB;
     and(...conditions: QB[]): QB;
     or(...conditions: QB[]): QB;
+    arrayContains(field: {
+        name: string;
+    }, value: number | string): QB;
     build(): {
         query: string;
         params: SqlParameter[];

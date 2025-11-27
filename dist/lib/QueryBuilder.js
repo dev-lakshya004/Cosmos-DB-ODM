@@ -110,6 +110,13 @@ class QB {
         ];
         return new QB({ name: combinedQuery }, combinedParams);
     }
+    arrayContains(field, value) {
+        const param = this.addParam(value);
+        return new QB({ name: `ARRAY_CONTAINS(c.${field.name}, ${param.name})` }, [
+            ...this.params,
+            param,
+        ]);
+    }
     build() {
         return {
             query: this.query.name,
