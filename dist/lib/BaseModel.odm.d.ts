@@ -36,11 +36,20 @@ declare class Model<T extends ZodObject<any>> {
         offset?: number;
         orderBy?: string;
     }): Promise<StandarOutput<T>>;
+    findOne({ filter, fields, orderBy, }: {
+        filter?: QB;
+        fields?: FieldsFromSchema<T>;
+        orderBy?: string;
+    }): Promise<StandarOutput<T>>;
     updateById({ doc, id, }: {
         doc: z.infer<T>;
         id: string;
     }): Promise<StandarOutput<T>>;
     update({ doc, filter, }: {
+        doc: z.infer<T>;
+        filter: QB;
+    }): Promise<StandarOutput<T>>;
+    upsertOne({ doc, filter, }: {
         doc: z.infer<T>;
         filter: QB;
     }): Promise<StandarOutput<T>>;

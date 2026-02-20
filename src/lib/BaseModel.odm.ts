@@ -42,7 +42,7 @@ class Model<T extends ZodObject<any>> {
 
   private defineModel<S extends z.ZodObject<any>>(
     schema: S,
-    prefix = ""
+    prefix = "",
   ): FieldsFromSchema<S> {
     const fields = Object.keys(schema.shape).reduce((acc, key) => {
       const fieldSchema = schema.shape[key];
@@ -71,7 +71,7 @@ class Model<T extends ZodObject<any>> {
         throw new Error(validatedDoc.error.message);
       }
       const { resource } = await this._collection.items.create(
-        validatedDoc.data
+        validatedDoc.data,
       );
       return {
         resource: resource as z.infer<T>,
@@ -100,10 +100,10 @@ class Model<T extends ZodObject<any>> {
       const resources: z.infer<T>[] = await Promise.all(
         docs.map(async (doc) => {
           const { resource } = await this._collection.items.create(
-            doc as z.infer<T>
+            doc as z.infer<T>,
           );
           return resource as z.infer<T>;
-        })
+        }),
       );
 
       return {
@@ -198,6 +198,37 @@ class Model<T extends ZodObject<any>> {
     }
   }
 
+  async findOne({
+    filter,
+    fields,
+    orderBy,
+  }: {
+    filter?: QB;
+    fields?: FieldsFromSchema<T>;
+    orderBy?: string;
+  }): Promise<StandarOutput<T>> {
+    try {
+      const { resources } = await this.find({
+        filter: filter!,
+        fields: fields!,
+        orderBy: orderBy!,
+        limit: 1,
+      });
+
+      if (!resources || resources?.length === 0) {
+        return { resource: null, count: 0, success: true };
+      }
+
+      return {
+        resource: resources[0] as z.infer<T>,
+        count: 1,
+        success: true,
+      };
+    } catch (error: any) {
+      return { resource: null, error: error, count: 0, success: false };
+    }
+  }
+
   async updateById({
     doc,
     id,
@@ -282,7 +313,7 @@ class Model<T extends ZodObject<any>> {
             updateFailed++;
             errorStack.push(error);
           }
-        })
+        }),
       );
 
       return {
@@ -291,6 +322,48 @@ class Model<T extends ZodObject<any>> {
         itemsFailed: updateFailed,
         count: itemsUpdated,
         error: errorStack,
+        success: true,
+      };
+    } catch (error: any) {
+      return {
+        resources: [],
+        count: 0,
+        error: error,
+        itemsFailed: 1,
+        success: false,
+      };
+    }
+  }
+
+  async upsertOne({
+    doc,
+    filter,
+  }: {
+    doc: z.infer<T>;
+    filter: QB;
+  }): Promise<StandarOutput<T>> {
+    try {
+      const { resources: existingDocs } = await this.find({ filter });
+      let data;
+      if (!existingDocs || existingDocs.length === 0) {
+        data = await this.insert(doc);
+      } else {
+        data = await this.update({ doc, filter });
+      }
+
+      let response;
+
+      if (data.resource) response = data.resource;
+      else {
+        if (data.resources && data.resources.length > 0)
+          response = data.resources[0];
+        else response = null;
+      }
+
+      return {
+        resource: response as z.infer<T>,
+        count: 0,
+        itemsFailed: 0,
         success: true,
       };
     } catch (error: any) {
@@ -354,7 +427,7 @@ class Model<T extends ZodObject<any>> {
 
   async deleteById(
     id: string,
-    partitionKey: string = id
+    partitionKey: string = id,
   ): Promise<StandarOutput<T>> {
     try {
       await this._collection.item(id, partitionKey).delete();
@@ -387,7 +460,7 @@ class Model<T extends ZodObject<any>> {
         itemToDelete.map(async (doc) => {
           let { deleted, error } = await this.deleteById(
             (doc?.id || "").toString(),
-            (doc?.partitionKey || doc?.id || "").toString()
+            (doc?.partitionKey || doc?.id || "").toString(),
           );
 
           if (deleted) itemsDeleted++;
@@ -395,7 +468,7 @@ class Model<T extends ZodObject<any>> {
             itemsFailed++;
             errorStack.push(error as Error);
           }
-        })
+        }),
       );
 
       return {
@@ -417,7 +490,7 @@ class Model<T extends ZodObject<any>> {
 
   async findByQuery(
     query: string,
-    parameters?: SqlParameter[]
+    parameters?: SqlParameter[],
   ): Promise<StandarOutput<T>> {
     try {
       const querySpec = parameters ? { query, parameters } : { query };

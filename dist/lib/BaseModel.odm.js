@@ -129,6 +129,27 @@ class Model {
             return { resources: [], error: error, count: 0, success: false };
         }
     }
+    async findOne({ filter, fields, orderBy, }) {
+        try {
+            const { resources } = await this.find({
+                filter: filter,
+                fields: fields,
+                orderBy: orderBy,
+                limit: 1,
+            });
+            if (!resources || resources?.length === 0) {
+                return { resource: null, count: 0, success: true };
+            }
+            return {
+                resource: resources[0],
+                count: 1,
+                success: true,
+            };
+        }
+        catch (error) {
+            return { resource: null, error: error, count: 0, success: false };
+        }
+    }
     async updateById({ doc, id, }) {
         if (!doc) {
             throw new Error("Nothing To Update");
@@ -199,6 +220,42 @@ class Model {
                 itemsFailed: updateFailed,
                 count: itemsUpdated,
                 error: errorStack,
+                success: true,
+            };
+        }
+        catch (error) {
+            return {
+                resources: [],
+                count: 0,
+                error: error,
+                itemsFailed: 1,
+                success: false,
+            };
+        }
+    }
+    async upsertOne({ doc, filter, }) {
+        try {
+            const { resources: existingDocs } = await this.find({ filter });
+            let data;
+            if (!existingDocs || existingDocs.length === 0) {
+                data = await this.insert(doc);
+            }
+            else {
+                data = await this.update({ doc, filter });
+            }
+            let response;
+            if (data.resource)
+                response = data.resource;
+            else {
+                if (data.resources && data.resources.length > 0)
+                    response = data.resources[0];
+                else
+                    response = null;
+            }
+            return {
+                resource: response,
+                count: 0,
+                itemsFailed: 0,
                 success: true,
             };
         }
